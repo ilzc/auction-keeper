@@ -299,13 +299,12 @@ class DebtAuctionStrategy(Strategy):
                       auction_deadline=bid.auction_deadline,
                       price=Wad(bid.bid_amount * Rad(redemption_price) / Rad(bid.amount_to_sell)) if Wad(bid.bid_amount) != Wad(0) else None)
 
-
     def bid(self, id: int, price: Wad) -> Tuple[Optional[Wad], Optional[Transact], Optional[Rad]]:
         assert isinstance(id, int)
         assert isinstance(price, Wad)
 
         bid = self.debt_auction_house.bids(id)
-        our_amount = bid.bid_amount / Rad(price)
+        our_amount = bid.bid_amount * self.geb.oracle_relayer.redemption_price() / Rad(price)
 
         if Ray(our_amount) * self.bid_increase <= Ray(bid.amount_to_sell) and our_amount < Rad(bid.amount_to_sell):
             return price, self.debt_auction_house.decrease_sold_amount(id, Wad(our_amount), bid.bid_amount), bid.bid_amount

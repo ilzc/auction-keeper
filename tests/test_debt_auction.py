@@ -173,7 +173,7 @@ class TestAuctionKeeperDebtAuction(TransactionIgnoringTest):
         assert status.bid_amount > Rad.from_number(0)
         assert status.amount_to_sell == self.geb.accounting_engine.initial_debt_auction_minted_tokens()
         assert status.amount_to_raise is None
-        assert status.bid_increase > Wad.from_number(1)
+        assert status.bid_decrease > Wad.from_number(1)
         assert status.high_bidder == self.geb.accounting_engine.address
         assert status.block_time > 0
         assert status.auction_deadline < status.block_time + self.debt_auction_house.total_auction_length() + 1
@@ -215,7 +215,7 @@ class TestAuctionKeeperDebtAuction(TransactionIgnoringTest):
         assert status.bid_amount == last_bid.bid_amount
         assert status.amount_to_sell == Wad(last_bid.bid_amount * self.geb.oracle_relayer.redemption_price() / Rad(price))
         assert status.amount_to_raise is None
-        assert status.bid_increase > Wad.from_number(1)
+        assert status.bid_decrease > Wad.from_number(1)
         assert status.high_bidder == self.keeper_address
         assert status.block_time > 0
         assert status.auction_deadline > status.block_time
@@ -253,7 +253,7 @@ class TestAuctionKeeperDebtAuction(TransactionIgnoringTest):
         assert status.bid_amount == self.debt_auction_bid_size
         assert status.amount_to_sell == amount_to_sell
         assert status.amount_to_raise is None
-        assert status.bid_increase > Wad.from_number(1)
+        assert status.bid_decrease > Wad.from_number(1)
         assert status.high_bidder == self.other_address
         assert status.block_time > 0
         assert status.auction_deadline > status.block_time

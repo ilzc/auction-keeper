@@ -140,12 +140,15 @@ class SAFEHistory:
             return result['modifySAFECollateralizations']
 
         page_num = 0
-        page = fetch_page(from_block, to_block, page_num * page_size,  page_size)
+        page = fetch_page(from_block, to_block, page_size,  page_num * page_size)
         all_pages = []
         while page:
           all_pages.extend(page)
           page_num += 1
-          page = fetch_page(from_block, to_block, page_num * page_size, page_size)
+          if page_num > 5:
+              self.logger.warning(f"TheGraph query limited to 5000 skip, try setting a lower graph block threshold to avoid missing safes!")
+              break
+          page = fetch_page(from_block, to_block,  page_size, page_num * page_size)
 
         return all_pages
 

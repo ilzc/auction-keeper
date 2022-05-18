@@ -96,17 +96,25 @@ class SAFEHistory:
                                                                 collateral_type=self.collateral_type)
             self.logger.debug(f"Retrieved {len(mods)} past safe mods from node")
 
+        self.logger.debug(f"Try to add new safe to address list, current safe count: {len(mods)}")
+
         for mod in mods:
             safe_addresses.add(mod.safe)
 
+        # self.logger.debug(f"Update state of already-cached safes")
         # Update state of already-cached safes
-        for address, safe in self.cache.items():
-            self.cache[address] = self.geb.safe_engine.safe(self.collateral_type, address)
+        # for address, safe in self.cache.items():
+        #     self.logger.debug(f"adding cache ddress: {address}")
+            # self.cache[address] = self.geb.safe_engine.safe(self.collateral_type, address)
 
+        self.logger.debug(f"Cache state of newly discovered safes")
         # Cache state of newly discovered safes
         for address in safe_addresses:
-            if address not in self.cache:
-                self.cache[address] = self.geb.safe_engine.safe(self.collateral_type, address)
+            self.logger.debug(f"address: {address}")
+            self.cache[address] = self.geb.safe_engine.safe(self.collateral_type, address)
+            # if address not in self.cache:
+            #     self.logger.debug(f"not in address: {address}")
+            #     self.cache[address] = self.geb.safe_engine.safe(self.collateral_type, address)
 
         self.logger.debug(f"Updated {len(self.cache)} safes in {(datetime.now()-start).seconds} seconds")
         self.cache_block = to_block
@@ -115,7 +123,7 @@ class SAFEHistory:
     @retry(exceptions=Exception, tries=10, delay=0, max_delay=None, backoff=1, jitter=0)
     def fetch_safe_mods(self, graph_endpoint, from_block, to_block, page_size=1000):
 
-        self.logger.info(f"Fetching safe modes from {graph_endpoint}")
+        self.logger.info(f"Fetching safe modes from {graph_endpoint}, from_block:{from_block}, to_block:{to_block}")
         transport = AIOHTTPTransport(url=graph_endpoint)
 
         client = Client(transport=transport, fetch_schema_from_transport=True)
@@ -135,7 +143,8 @@ class SAFEHistory:
                 }}
             }}
             """
-            )   
+            )
+            self.logger.debug(f"Query safe:{query}")
             result = client.execute(query)
             return result['modifySAFECollateralizations']
 

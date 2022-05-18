@@ -386,6 +386,7 @@ class AuctionKeeper:
 
     def shutdown(self):
         with self.auctions_lock:
+            self.logger.debug(f"shutdown auctions_lock required")
             del self.auctions
         if self.arguments.exit_system_coin_on_shutdown:
             self.exit_system_coin_on_shutdown()
@@ -569,12 +570,14 @@ class AuctionKeeper:
             if not self.auction_handled_by_this_shard(id):
                 continue
             with self.auctions_lock:
+                self.logger.debug(f"check_all_auctions auctions_lock required")
                 # If we're exiting, release the lock around checking auctions
                 if self.is_shutting_down():
                     return
 
                 # Check whether auction needs to be handled; settle the auction if appropriate
                 if not self.check_auction(id):
+                    self.logger.debug(f"No need to handle auction: {id}")
                     continue
 
                 # If we're not bidding, don't produce a price model for the auction
@@ -596,6 +599,7 @@ class AuctionKeeper:
 
                 # Prevent growing the auctions collection beyond the configured size
                 if len(self.auctions.auctions) < self.arguments.max_auctions:
+                    self.logger.debug(f"feed_model {id}")
                     self.feed_model(id)
                 elif id not in self.auctions.auctions.keys():
                     ignored_auctions.append(id)
@@ -618,6 +622,7 @@ class AuctionKeeper:
             raise RuntimeError("Unsupported auction type")
         
         with self.auctions_lock:
+            self.logger.debug(f"check_for_bids auctions_lock required")
             for id, auction in self.auctions.auctions.items():
                 # If we're exiting, release the lock around checking price models
                 if self.is_shutting_down():
@@ -639,11 +644,17 @@ class AuctionKeeper:
     #     for example).
     def check_auction(self, id: int) -> bool:
         assert isinstance(id, int)
+
+        #Already dealed with auction, avoid rpc callilng.  
+        if id in self.dead_since and self.dead_since[id] == -1:
+            return False
+
         current_block = self.web3.eth.blockNumber
         assert isinstance(current_block, int)
 
         # Improves performance by avoiding an onchain call to check auctions we know have completed.
-        if id in self.dead_since and current_block - self.dead_since[id] > 10:
+        if id in self.dead_since and current_block - self.dead_since[id] > 5:
+            self.dead_since[id] = -1 #Already checked flag.
             return False
 
         # Read auction information from the chain
@@ -656,6 +667,7 @@ class AuctionKeeper:
             auction_finished = False
             if input.amount_to_sell == Wad(0):
                 auction_deleted = True
+                logging.debug(f"Auction {id}:amount_to_sell equals 0 ,Stopped tracking")
         else:
             auction_finished = (input.bid_expiry < input.block_time and input.bid_expiry != 0) or (input.auction_deadline < input.block_time)
 
@@ -663,8 +675,11 @@ class AuctionKeeper:
             # Try to remove the auction so the model terminates and we stop tracking it.
             # If auction has already been removed, nothing happens.
             self.auctions.remove_auction(id)
-            self.dead_since[id] = current_block
-            logging.debug(f"Stopped tracking auction {id}")
+            if id not in self.dead_since:
+                self.dead_since[id] = current_block
+                logging.debug(f"Stopped tracking auction {id} current_block:{current_block}")
+            else:
+                logging.debug(f"Stopped tracking auction {id}")
             return False
 
         # Check if the auction is finished.  If so configured, `restart_auction` or `settle_auction` the auction synchronously.
@@ -687,7 +702,8 @@ class AuctionKeeper:
             # Remove the auction so the model terminates and we stop tracking it.
             # If auction has already been removed, nothing happens.
             self.auctions.remove_auction(id)
-            self.dead_since[id] = current_block
+            if id not in self.dead_since:
+                self.dead_since[id] = current_block
             logging.debug(f"Auction {id} finished")
             return False
 
